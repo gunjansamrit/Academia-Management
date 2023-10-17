@@ -3,13 +3,22 @@
 #include <string.h>
 #include <unistd.h>
 #define MAX 50
-struct course
+#define MAX_COURSES 150
+#define MAX_STUDENTS 300
+#define COURSES_ENROLL 7
+struct Course
 {
-    char name[MAX];
-    // struct Faculty facultyOffering;
-    int maxSeats;
-    int availableSeats;
-    int credits;
+    // char name[MAX];
+    // char maxSeats[MAX];
+    // char credits[MAX];
+    // 0-name
+    // 1-maxSeats
+    // 2-credits
+    // 3-courseId
+    char details[4][MAX];
+    int currentStudentsCount;
+    int students[MAX_STUDENTS];
+    char faculty[MAX];
 };
 struct Admin
 {
@@ -29,7 +38,7 @@ struct Faculty
     // 3-password
     // 4-facultyId
     char details[5][MAX];
-    struct course coursesOffered[MAX];
+    int courses[MAX_COURSES];
     int coursesCount;
 };
 struct Student
@@ -45,5 +54,6 @@ struct Student
     // 3-password
     // 4-studentId
     char details[5][MAX];
-    struct course coursesRegeistered[MAX];
+    int coursesCount;
+    int courses[MAX_COURSES];
 };

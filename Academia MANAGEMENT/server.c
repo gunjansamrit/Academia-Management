@@ -7,11 +7,13 @@
 #include <sys/socket.h>
 #include<fcntl.h>
 // #include "methods.h"
+#include "components.h"
+#include "methods.h"
 #include "handleRegister.h"
 #include "handleLogin.h"
-#include "methods.h"
 #include "faculty.h"
 #include "student.h"
+#include "admin.h"
 #define PORT 12345
 #define MAX_BUFFER_SIZE 1024
 struct user
@@ -92,13 +94,12 @@ void handleAdmin(int client_socket)
 		    }
             if(success==2)
             {
-                printf("login success\n");
+                handleAdminLoginSuccess(client_socket);
             }
             else
             {
-                printf("login fail\n");
+                handleAdminLoginFail(client_socket);
             }
-    		shutdown(client_socket, SHUT_RDWR);
 	
 }
 

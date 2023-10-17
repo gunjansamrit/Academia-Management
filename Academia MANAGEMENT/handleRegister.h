@@ -6,7 +6,6 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include<fcntl.h>
-#include "components.h"
 int getNextStudentID() 
 {
     int fd = open("student.txt", O_RDONLY);
@@ -31,12 +30,6 @@ int getNextFacultyID()
     close(fd);
     return numStudents; 
 }
-
-
-void convertIndexToID(int index, char* id) 
-{
-        snprintf(id, 4, "%03d", index); 
-}
 void writeFacultyToFile(int client_socket,const struct Faculty* fac) 
 {
     int fd = open("faculty.txt", O_WRONLY | O_APPEND);
@@ -51,7 +44,7 @@ void writeFacultyToFile(int client_socket,const struct Faculty* fac)
         perror("Error writing to file");
         return;
     }
-    char *prompt="Registered Successfully\n";
+    char *prompt="\nRegistered Successfully\n";
     send(client_socket,prompt,strlen(prompt),0);
     close(fd);
 }
@@ -83,7 +76,7 @@ void registerFaculty(int client_socket)
             }
         }
     }
-    char id[4];
+    char id[5];
     int nextId=getNextFacultyID();
     if(nextId>=1000)
     {
@@ -92,7 +85,17 @@ void registerFaculty(int client_socket)
     }
     convertIndexToID(nextId,id);
     id[3]='\0';
+    id[4]='\0';
     strncpy(fac.details[4],id,4);
+    fac.coursesCount=0;
+    for(int i=0;i<MAX_COURSES;i++)
+    {
+        fac.courses[i]=0;
+    }
+    id[3]='\n';
+    id[4]='\0';
+    send(client_socket,"Your LoginId : ",strlen("Your LoginId : "),0);
+    send(client_socket,id,strlen(id),0);
     writeFacultyToFile(client_socket,&fac);
 }
 void writeStudentToFile(int client_socket,const struct Student* stu) 
@@ -108,7 +111,7 @@ void writeStudentToFile(int client_socket,const struct Student* stu)
     {
         perror("Error writing to file");
     }
-    char *prompt="Regisetred Successfully\n";
+    char *prompt="\nRegisetred Successfully\n";
     send(client_socket,prompt,strlen(prompt),0);
     close(fd);
 }
@@ -140,7 +143,7 @@ void registerStudent(int client_socket)
             }
         }
     }
-    char id[4];
+    char id[5];
     int nextId=getNextStudentID();
     if(nextId>=1000)
     {
@@ -149,7 +152,17 @@ void registerStudent(int client_socket)
     }
     convertIndexToID(nextId,id);
     id[3]='\0';
+    id[4]='\0';
     strncpy(stu.details[4],id,4);
+    stu.coursesCount=0;
+    for(int i=0;i<MAX_COURSES;i++)
+    {
+        stu.courses[i]=0;
+    }
+    id[3]='\n';
+    id[3]='\0';
+    send(client_socket,"Your LoginId : ",strlen("Your LoginId : "),0);
+    send(client_socket,id,strlen(id),0);
     writeStudentToFile(client_socket,&stu);
 }
 

@@ -6,13 +6,375 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include<fcntl.h>
-void addCourse()
+void removeStudentFromCourse(int client_socket,int s,int c)
 {
-    printf("add course\n");
+    struct Student stu;
+    int fd = open("student.txt", O_RDWR);
+    if (fd == -1) 
+    {
+        perror("Error opening file");
+        return;
+    }
+    off_t offset = s * sizeof(struct Student);
+    if (lseek(fd, offset, SEEK_SET) == -1) 
+    {
+        send(client_socket,"Failed\n",strlen("Failed\n"),0);
+        return ; 
+    }
+    if(read(fd,&stu,sizeof(struct Student))!=sizeof(struct Student))
+    {
+        send(client_socket,"Failed\n",strlen("Failed\n"),0);
+        return ; 
+    }
+    close(fd);
+    stu.courses[c]=0;
+    updateStudentToFile(client_socket,&stu);
 }
-void editCourse()
+void changeCourseDetails(int client_socket,int id,int d,char *command_buffer)
 {
-    printf("edit course\n");
+    int fd = open("courses.txt", O_RDONLY);
+    if (fd == -1) 
+    {
+        send(client_socket,"Failed\n",strlen("Failed\n"),0); 
+        return;
+    }
+    struct Course temp;
+    off_t offset = id * sizeof(struct Course);
+    if (lseek(fd, offset, SEEK_SET) == -1) 
+    {
+        send(client_socket,"Failed\n",strlen("Failed\n"),0);
+        return ; 
+    }
+    if (read(fd, &temp, sizeof(struct Course)) != sizeof(struct Course)) 
+    {
+        send(client_socket,"Failed\n",strlen("Failed\n"),0);
+        return ; 
+    }
+    if(d==1)
+    {
+        int newSeats=atoi(command_buffer);
+        int curSeats=temp.currentStudentsCount;
+        if(newSeats<curSeats)
+        {
+            while(curSeats>newSeats)
+            {
+                printf("%d\n",temp.students[curSeats-1]);
+                removeStudentFromCourse(client_socket,temp.students[curSeats-1],id);
+                temp.students[curSeats-1]=-1;
+                curSeats--;
+            }
+        }
+    }
+    strcpy(temp.details[d],command_buffer);
+    updateCourseToFile(client_socket,&temp);
+}
+int getCourse(int client_socket,struct Faculty *fac)
+{
+    char buffer[1024];
+    char command_buffer[1024];
+    int buffer_index = 0;
+    char *prompt="Enter ID of Course you want to change\n";
+    while(1)
+    {
+        for(int k=0;k<1;k++) 
+        {
+            send(client_socket,prompt,strlen(prompt),0);
+            int bytes_received = recv(client_socket, buffer, sizeof(buffer), 0);
+            if (bytes_received <= 0) 
+            {
+                break;
+            }
+            for (int i = 0; i < bytes_received; i++) 
+            {
+                if (buffer[i] == '\n') 
+                {
+                    command_buffer[buffer_index] = '\0';  
+                    buffer_index = 0;
+                } 
+                else 
+                {
+                    command_buffer[buffer_index++] = buffer[i];
+                }
+            }
+        }
+        if(!isInteger(command_buffer)||fac->courses[atoi(command_buffer)]==0)
+        {
+            char *msg="Invalid ID\n";
+            send(client_socket,msg,strlen(msg),0);
+        }
+        else
+        {
+            return atoi(command_buffer);
+        }
+    }
+}
+void changeCourseCredits(int client_socket,int id)
+{
+    char buffer[1024];
+    char command_buffer[1024];
+    int buffer_index = 0;
+    char *prompt="Enter new Credits\n";
+    while(1)
+    {
+        for(int k=0;k<1;k++) 
+        {
+            send(client_socket,prompt,strlen(prompt),0);
+            int bytes_received = recv(client_socket, buffer, sizeof(buffer), 0);
+            if (bytes_received <= 0) 
+            {
+                break;
+            }
+            for (int i = 0; i < bytes_received; i++) 
+            {
+                if (buffer[i] == '\n') 
+                {
+                    command_buffer[buffer_index] = '\0';  
+                    buffer_index = 0;
+                } 
+                else 
+                {
+                    command_buffer[buffer_index++] = buffer[i];
+                }
+            }
+        }
+        if(!isInteger(command_buffer))
+        {
+            char *msg="Invalid ID\n";
+            send(client_socket,msg,strlen(msg),0);
+        }
+        else
+        {
+            changeCourseDetails(client_socket,id,2,command_buffer);
+            break;
+        }
+    }
+}
+void changeMaximumStudents(int client_socket,int id)
+{
+    char buffer[1024];
+    char command_buffer[1024];
+    int buffer_index = 0;
+    char *prompt="Enter max Seats\n";
+    while(1)
+    {
+        for(int k=0;k<1;k++) 
+        {
+            send(client_socket,prompt,strlen(prompt),0);
+            int bytes_received = recv(client_socket, buffer, sizeof(buffer), 0);
+            if (bytes_received <= 0) 
+            {
+                break;
+            }
+            for (int i = 0; i < bytes_received; i++) 
+            {
+                if (buffer[i] == '\n') 
+                {
+                    command_buffer[buffer_index] = '\0';  
+                    buffer_index = 0;
+                } 
+                else 
+                {
+                    command_buffer[buffer_index++] = buffer[i];
+                }
+            }
+        }
+        if(!isInteger(command_buffer))
+        {
+            char *msg="Invalid ID\n";
+            send(client_socket,msg,strlen(msg),0);
+        }
+        else
+        {
+            changeCourseDetails(client_socket,id,1,command_buffer);
+            break;
+        }
+    }
+}
+void removeCourse(int client_socket,int id,struct Faculty *fac)
+{
+    int fd = open("courses.txt", O_RDWR);
+    if (fd == -1) 
+    {
+        send(client_socket,"Failed\n",strlen("Failed\n"),0); 
+        return;
+    }
+
+    off_t offset = id * sizeof(struct Course);
+    if (lseek(fd, offset, SEEK_SET) == -1) 
+    {
+        send(client_socket,"Failed\n",strlen("Failed\n"),0); 
+        return;
+    }
+
+    struct Course course;
+    if (read(fd, &course, sizeof(struct Course)) != sizeof(struct Course)) 
+    {
+        send(client_socket,"Failed read\n",strlen("Failed read\n"),0); 
+        return;  
+    }
+    if (lseek(fd, offset, SEEK_SET) == -1) 
+    {
+        send(client_socket,"Failed find\n",strlen("Failed find\n"),0); 
+        return;
+    }
+    struct Course emptyCourse; 
+    memset(&emptyCourse, 0, sizeof(struct Course)); 
+    char *inId="-1\0";
+    strcpy(emptyCourse.details[3],inId);
+    for(int i=0;i<course.currentStudentsCount;i++)
+    {
+        removeStudentFromCourse(client_socket,course.students[i],id);
+    }
+    fac->courses[id]=0;
+    updateFacultyToFile(client_socket,fac);
+    if (write(fd, &emptyCourse, sizeof(struct Course)) != sizeof(struct Course)) 
+    {
+        send(client_socket,"Failed\n",strlen("Failed\n"),0); 
+        return;  
+    }
+
+    close(fd);
+}
+void changeCourseName(int client_socket,int id)
+{
+    char buffer[1024];
+    char command_buffer[1024];
+    int buffer_index = 0;
+    char *prompt="Enter new Name\n";
+    for(int k=0;k<1;k++) 
+    {
+        send(client_socket,prompt,strlen(prompt),0);
+        int bytes_received = recv(client_socket, buffer, sizeof(buffer), 0);
+        if (bytes_received <= 0) 
+        {
+            break;
+        }
+        for (int i = 0; i < bytes_received; i++) 
+        {
+            if (buffer[i] == '\n') 
+            {
+                command_buffer[buffer_index] = '\0';  
+                buffer_index = 0;
+            } 
+            else 
+            {
+                command_buffer[buffer_index++] = buffer[i];
+            }
+        }
+    }
+    changeCourseDetails(client_socket,id,0,command_buffer);
+}
+int getNextCourseID() 
+{
+    int fd = open("courses.txt", O_RDONLY);
+    if (fd == -1) 
+    {
+        return 0; 
+    }
+    off_t offset = lseek(fd, 0, SEEK_END); 
+    int numCourses = offset / sizeof(struct Course);
+    close(fd);
+    return numCourses; 
+}
+void writeCourseToFile(int client_socket,struct Course* sub) 
+{
+    int fd = open("courses.txt", O_WRONLY | O_APPEND);
+    if (fd == -1) 
+    {
+        perror("Error opening file");
+        return;
+    }
+
+    if (write(fd, sub, sizeof(struct Course)) != sizeof(struct Course)) 
+    {
+        perror("Error writing to file");
+        return;
+    }
+    char *prompt="Course Added Successfully\n";
+    send(client_socket,prompt,strlen(prompt),0);
+    close(fd);
+}
+void addCourse(int client_socket,struct Faculty *fac)
+{
+    struct Course sub;
+    char buffer[1024];
+    char command_buffer[1024];
+    int buffer_index = 0;
+    char *prompts[3]={"Enter Name of the Course : \n","Enter total seats accepted : \n","Enter credits : \n"};
+    for(int k=0;k<3;k++) 
+    {
+        send(client_socket,prompts[k],strlen(prompts[k]),0);
+        int bytes_received = recv(client_socket, buffer, sizeof(buffer), 0);
+        if (bytes_received <= 0) 
+        {
+            break;
+        }
+        for (int i = 0; i < bytes_received; i++) 
+        {
+            if (buffer[i] == '\n') 
+            {
+                sub.details[k][buffer_index] = '\0'; 
+                buffer_index = 0;
+                if(k>0&&!isInteger(sub.details[k]))
+                {
+                    send(client_socket,"Invaild...Enter Again\n",strlen("Invaild...Enter Again\n"),0);
+                    k--;
+                    continue;
+                } 
+            } 
+            else 
+            {
+                sub.details[k][buffer_index++] = buffer[i];
+            }
+        }
+    }
+    char id[5];
+    int nextId=getNextCourseID();
+    convertIndexToID(nextId,id);
+    id[3]='\0';
+    id[4]='\0';
+    strncpy(sub.details[3],id,4);
+    strcpy(sub.faculty,fac->details[0]);
+    sub.currentStudentsCount=0;
+    for(int i=0;i<MAX_STUDENTS;i++)
+    {
+        sub.students[i]=-1;
+    }
+    fac->courses[atoi(id)]=1;
+    send(client_socket,"Course Id : ",strlen("Course Id : "),0);
+    send(client_socket,id,strlen(id),0);
+    updateFacultyToFile(client_socket,fac);
+    writeCourseToFile(client_socket,&sub);
+}
+void editCourse(int client_socket,struct Faculty *fac)
+{
+    int id=getCourse(client_socket,fac);
+    char *prompt="What would you like to do??\nChange Name(Enter 1)\nChange Credits(Enter 2)\nChange maximum students(Enter 3)\nExit(Enter 0)\nRemove Course(Enter 4)\n";
+    int modify=1;
+    while(modify)
+    {
+        char role=takeOption(prompt,client_socket);
+        switch(role)
+        {
+            case '1':
+                changeCourseName(client_socket,id);
+                break;
+            case '2':
+                changeCourseCredits(client_socket,id);
+                break;
+            case '3':
+                changeMaximumStudents(client_socket,id);
+                break;
+            case '4':
+                removeCourse(client_socket,id,fac);
+                break;
+            case '0':
+                modify=0;
+                break;
+            default:
+                break;
+        }
+    }
 }
 void changePasswordFaculty(int client_socket,struct Faculty *fac)
 {
@@ -57,24 +419,6 @@ void changePasswordFaculty(int client_socket,struct Faculty *fac)
                 break;
             }
             struct Faculty temp;
-            // off_t offset = 0;
-            // int updated = 0;
-            // while (read(fd, &temp, sizeof(struct Faculty)) == sizeof(struct Faculty)) 
-            // {
-            //     if (strcmp(temp.details[4], fac->details[4]) == 0) 
-            //     {
-            //         lseek(fd, offset, SEEK_SET);
-            //         write(fd, fac, sizeof(struct Faculty));
-            //         updated = 1;
-            //         break;
-            //     }
-            //     offset = lseek(fd, 0, SEEK_CUR);
-            // }
-
-            // close(fd);
-            // char *prompt="Password changed Succefully\n";
-            // send(client_socket,prompt,strlen(prompt),0);
-            // break;
             char *prompt;
             if (read(fd, &temp, sizeof(struct Faculty)) == sizeof(struct Faculty)) 
             {
@@ -110,9 +454,9 @@ void changePasswordFaculty(int client_socket,struct Faculty *fac)
         }
     }
 }
-void viewCourses()
+void facultyCourses(struct Faculty *fac,int client_socket)
 {
-    printf("view courses\n");
+    viewCourses(fac->courses,client_socket);   
 }
 void handleFacultyLoginSuccess(int client_socket,struct Faculty *fac)
 {
@@ -125,16 +469,16 @@ void handleFacultyLoginSuccess(int client_socket,struct Faculty *fac)
         switch(role)
         {
             case '1':
-                addCourse();
+                addCourse(client_socket,fac);
                 break;
             case '2':
-                editCourse();
+                editCourse(client_socket,fac);
                 break;
             case '3':
                 changePasswordFaculty(client_socket,fac);
                 break;
             case '4':
-                viewCourses();
+                facultyCourses(fac,client_socket);
                 break;
             case '0':
                 login=0;

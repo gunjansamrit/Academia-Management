@@ -6,9 +6,77 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include<fcntl.h>
-void enrollCourse()
+void enrollCourse(int client_socket,struct Student *stu)
 {
-    printf("enroll course\n");
+    int courses[MAX_COURSES];
+    for(int i=0;i<MAX_COURSES;i++)
+    {
+        courses[i]=1;
+    }
+    viewCourses(courses,client_socket);
+    char buffer[1024];
+    char command_buffer[1024];
+    int buffer_index = 0;
+    char *prompt="Enter ID of Course you want to enroll\n";
+    int courseId=-1;
+    while(1)
+    {
+        for(int k=0;k<1;k++) 
+        {
+            send(client_socket,prompt,strlen(prompt),0);
+            int bytes_received = recv(client_socket, buffer, sizeof(buffer), 0);
+            if (bytes_received <= 0) 
+            {
+                break;
+            }
+            for (int i = 0; i < bytes_received; i++) 
+            {
+                if (buffer[i] == '\n') 
+                {
+                    command_buffer[buffer_index] = '\0';  
+                    buffer_index = 0;
+                } 
+                else 
+                {
+                    command_buffer[buffer_index++] = buffer[i];
+                }
+            }
+        }
+        if(!isInteger(command_buffer))
+        {
+            char *msg="Invalid ID\n";
+            send(client_socket,msg,strlen(msg),0);
+        }
+        else
+        {
+            courseId=atoi(command_buffer);
+            break;
+        }
+    }
+    stu->courses[courseId]=1;
+    int fd = open("courses.txt", O_RDONLY);
+    if (fd == -1) 
+    {
+        send(client_socket,"Failed\n",strlen("Failed\n"),0); 
+        return;
+    }
+    struct Course temp;
+    off_t offset = courseId * sizeof(struct Course);
+    if (lseek(fd, offset, SEEK_SET) == -1) 
+    {
+        send(client_socket,"Failed\n",strlen("Failed\n"),0);
+        return ; 
+    }
+    if (read(fd, &temp, sizeof(struct Course)) != sizeof(struct Course)) 
+    {
+        send(client_socket,"Failed\n",strlen("Failed\n"),0);
+        return ; 
+    }
+    close(fd);
+    temp.students[temp.currentStudentsCount]=atoi(stu->details[4]);
+    temp.currentStudentsCount++;
+    updateCourseToFile(client_socket,&temp);
+    updateStudentToFile(client_socket,stu);
 }
 void deenrollCourse()
 {
@@ -92,9 +160,9 @@ void changePasswordStudent(int client_socket,struct Student *stu)
         }
     }
 }
-void viewRegisteredCourses()
+void viewRegisteredCourses(int client_socket,struct Student *stu)
 {
-    printf("view registered courses\n");
+    viewCourses(stu->courses,client_socket);
 }
 void modifyDetails()
 {
@@ -111,7 +179,7 @@ void handleStudentLoginSuccess(int client_socket,struct Student *stu)
         switch(role)
         {
             case '1':
-                enrollCourse();
+                enrollCourse(client_socket,stu);
                 break;
             case '2':
                 deenrollCourse();
@@ -120,7 +188,7 @@ void handleStudentLoginSuccess(int client_socket,struct Student *stu)
                 changePasswordStudent(client_socket,stu);
                 break;
             case '4':
-                viewRegisteredCourses();
+                viewRegisteredCourses(client_socket,stu);
                 break;
             case '5':
                 modifyDetails();
